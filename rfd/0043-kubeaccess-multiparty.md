@@ -49,7 +49,7 @@ in the event of severe error or malice and have the ability to halt any erroneou
 
 #### Session states
 
-By default, a `kubectl exec` request will go through if no policies are defined.
+By default, a `kubectl exec` and `kubectl attach` request will go through if no policies are defined.
 If a policy like the one above is defined the session will be put in a pending state
 until the required viewers have joined.
 
@@ -73,6 +73,8 @@ When the requirements for present viewers laid out in the role policy are fulfil
 the session transitions to a `RUNNING` state. This involves initiating the connection to the pod
 and setting up the shell. Finally, all clients are multiplexed onto the same input/output streams.
 
+All participants are able to enter input and will see the input/output from all other participants.
+
 ##### Transition 2: `RUNNING -> TERMINATED`
 
 When the shell process created on the pod is terminated, the session transitions to a `TERMINATE` state and all clients
@@ -88,10 +90,22 @@ the Kubernetes proxy will send a termination request to the pod session to reque
 
 If a viewer disconnects from the session in a way that causes the policy for required session viewers to suddenly not be fulfilled,
 the session will transition back to a `PENDING` state. In this state, input and output streams are disconnected, preventing any further action.
+The connection to the pod is terminated.
+
+##### Transition 5: `PENDING -> TERMINATED`
+
+Any participant of the session can terminate the session in the `PENDING` state.
+This will simply mark the session as terminated and disconnect the participants as no
+connection to the pod exists at this time.
 
 #### UI/UX
 
 The initial implementation of multiparty sessions on Kubernetes access will only be supported via CLI access for implementation simplicity.
+
+Terminating the `kubectl` process that started the session terminates the session. Terminating a participant `tsh` process
+disconnects the participant from the session and applies relevant state transitions if any.
+
+Terminating the session from a participant `tsh` instance can be done with the key combination ´CTRL-Z`
 
 ##### Session creation
 
@@ -104,8 +118,8 @@ A session UUID is displayed when executing `kubectl exec` which allows others to
 its built-in facilities for support session joining.
 
 To make this process easier for the user. I propose extending the current `tsh join` command
-to also work for Kubernetes access in the form of `tsh kube join <session-id>`. If it is important
-for UX to stick to `kubectl` I propose writing a simple `kubectl` plugin that wraps this behaviour.
+to also work for Kubernetes access in the form of `tsh kube join <session-id>`. This attaches
+to an ongoing session.
 
 ### Configurable Model Proposition
 
@@ -133,6 +147,15 @@ spec:
           pod_labels: ["environment:prod"]
           filter: 'contains(viewer.roles, "admin") || contains(viewer.traits["teams"], "admins")'
           viewers: 1
+      - name: Admin and Auditor Policy
+          pod_labels: ["environment:prod"]
+          filters:
+            auditor:
+              filter: 'contains(viewer.roles, "auditor") || contains(viewer.traits["teams"], "auditors")'
+              viewers: 1
+            admin:
+              filter: 'contains(viewer.roles, "admin") || contains(viewer.traits["teams"], "admins")'
+              viewers: 1
 ```
 
 What this system attempts to achieve is to allow administrators to construct rich
