@@ -127,7 +127,9 @@ Instead of having fixed fields for specifying values such as required session vi
 model centers around conditional allow rules.
 
 Imagine that you want to require two users with the role `auditor` to be present in a session
-at all times for pods labeled `environment:prod` or alternatively one viewer with the role `admin`.
+at all times for pods labeled `environment:prod` or alternatively twp viewer with the role `admin`.
+A tertiary policy allows the session to start with one `admin` and one `auditor` viewer.
+
 Then a role could look like this:
 
 ```yaml
@@ -146,7 +148,7 @@ spec:
       - name: Admin Policy
           pod_labels: ["environment:prod"]
           filter: 'contains(viewer.roles, "admin") || contains(viewer.traits["teams"], "admins")'
-          viewers: 1
+          viewers: 2
       - name: Admin and Auditor Policy
           pod_labels: ["environment:prod"]
           filters:
