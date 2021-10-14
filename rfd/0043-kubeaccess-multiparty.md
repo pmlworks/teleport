@@ -9,18 +9,18 @@ state: draft
 
 Implement multiparty sessions for Kubernetes Access using a more advanced model
 with support for configurable conditions similar to those of [RFD 26](https://github.com/gravitational/teleport/blob/2fd6a88800604342bfa6277060b056d8bf0cbfb2/rfd/0026-custom-approval-conditions.md).
-Also support defining conditions for required live-viewers in order to initiate and maintain a session.
+Also support defining conditions for required observrs in order to initiate and maintain a session.
 
 ## Why
 
-Heavily regulated and security critical industries require that one or more viewers with a certain role
+Heavily regulated and security critical industries require that one or more observers with a certain role
 are present in Kubernetes Access sessions and viewing it live in order to guarantee that
 operator does not perform any mistakes or acts of malice.
 
-Such viewers need to have the power to end or lock a session immediately should anything go wrong.
+Such observers need to have the power to end or lock a session immediately should anything go wrong.
 
 To suit everyone this will need a more detailed configuration model based on rules
-that can be used to define viewers/auditors, their powers and when and in what capacity they are required.
+that can be used to define observers, their powers and when and in what capacity they are required.
 
 ## Details
 
@@ -36,13 +36,14 @@ An approach using multiplexing in the `proxy_service` layer was considered but w
 due to the fact that proxies don't handle the final session traffic hop when using Kubernetes Access.
 
 It will work by adding a multiplexing layer inside the forwarder that similar to the current session recording
-functionality, but instead this multiplexes outputs to all participants and streams input from the session initiator.
+functionality, but instead this multiplexes outputs to the session initiator and all observers
+but only streams back input from the initiator.
 
-#### Required session viewers
+#### Session observers
 
-A core feature we need to support is required viewers. This will allow cluster administrators to configure
-policies that require certain Teleport users of a certain role to be monitoring the session. Each of these
-"auditors" will also have the power to lock input/output for the session controller or instantly end it.
+A core feature we need to support is required observers. This will allow cluster administrators to configure
+policies that require certain Teleport users of a certain role to be actively monitoring the session. Each of these
+observers will also have the power to lock input/output for the session controller or instantly end it.
 
 This feature is useful in security critical environments where multiple people need to witness every action
 in the event of severe error or malice and have the ability to halt any erroneous or malicious action.
@@ -71,9 +72,10 @@ All sessions begin in the `PENDING` state and can change states based on the fol
 
 When the requirements for present viewers laid out in the role policy are fulfilled,
 the session transitions to a `RUNNING` state. This involves initiating the connection to the pod
-and setting up the shell. Finally, all clients are multiplexed onto the same input/output streams.
+and setting up the shell. Finally, all clients are multiplexed
+onto the correct streams as described previously.
 
-Only the session initiator is able to make input, auditors are not connected to the input stream
+Only the session initiator is able to make input, observers are not connected to the input stream
 and may only view stdout/stderr and terminate the session.
 
 ##### Transition 2: `RUNNING -> TERMINATED`
@@ -83,13 +85,13 @@ are disconnected as per standard `kubectl` behaviour.
 
 ##### Transition 3: `RUNNING -> TERMINATED`
 
-Session viewers that are present may at any point decide to forcefully terminate the session.
+Session observers that are present may at any point decide to forcefully terminate the session.
 This will instantly disconnect input and output streams to prevent further communication. Once this is done
 the Kubernetes proxy will send a termination request to the pod session to request it be stopped.
 
 ##### Transition 4: `RUNNING -> PENDING`
 
-If a viewer disconnects from the session in a way that causes the policy for required session viewers to suddenly not be fulfilled,
+If an observer disconnects from the session in a way that causes the policy for required observers to suddenly not be fulfilled,
 the session will transition back to a `PENDING` state. In this state, input and output streams are disconnected, preventing any further action.
 
 Here, the connection is frozen for a configurable amount of time as a sort of grace period.
@@ -97,7 +99,7 @@ Here, the connection is frozen for a configurable amount of time as a sort of gr
 ##### Transition 5: `PENDING -> TERMINATED`
 
 After a grace period has elapsed in a session in a session that previously was in a `RUNNING`
-state, the session is automatically terminated. This can be canceleld by having required participants
+state, the session is automatically terminated. This can be cancelled by having the required observers
 join back in which transitions the session back to `RUNNING`.
 
 ##### Transition 6: `PENDING -> TERMINATED`
@@ -110,10 +112,10 @@ connection to the pod exists at this time.
 
 The initial implementation of multiparty sessions on Kubernetes access will only be supported via CLI access for implementation simplicity.
 
-Terminating the `kubectl` process that started the session terminates the session. Terminating a participant `tsh` process
-disconnects the participant from the session and applies relevant state transitions if any.
+Terminating the `kubectl` process that started the session terminates the session. Terminating an observer `tsh` process
+disconnects the observer from the session and applies relevant state transitions if any.
 
-Terminating the session from a participant `tsh` instance can be done with the key combination ´CTRL-Z`
+Terminating the session from a observer `tsh` instance can be done with the key combination ´CTRL-T`
 
 ##### Session creation
 
@@ -173,7 +175,7 @@ matchers for who can serve as a required viewer for whom for some set of pods.
 
 #### Filter specification
 
-A filter determines if a user may act as an approved viewer or not.
+A filter determines if a user may act as an approved observer or not.
 To facilitate more complex configurations which may be desired we borrow some ideas from the `where` clause used by resource rules.
 
 To make it more workable, the language has been slimmed down significantly to handle this particular use case very well.
