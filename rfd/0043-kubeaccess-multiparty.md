@@ -131,6 +131,39 @@ To make this process easier for the user. I propose extending the current `tsh j
 to also work for Kubernetes access in the form of `tsh kube join <session-id>`. This attaches
 to an ongoing session and displays stdout/stderr.
 
+##### Example
+
+This example illustrates how a group 3 users of which Alice is the initiator and Eve and Ben are two observers
+start a multiparty session. Below is a a series of events that happen that include what each user sees and what
+they do.
+
+- Alice initiates an interactive session to a pod: `kubectl exec -it database -- sh`
+- Alice see:
+```
+Creating session with uuid <example-uuid>...
+Session pending: observer requirements not met
+- role: auditor-role x2
+```
+- Eve joins the session with `tsh kube join <example-uuid>`
+- Alice and Eve see:
+```
+Creating session with uuid <example-uuid>...
+Session pending: observer requirements not met
+- role: auditor-role x1
+Events:
+- User Eve joined the session.
+```
+- Ben joins the session with `tsh kube join <example-uuid>`
+- Alice, Eve and Ben see
+```
+Creating session with uuid <example-uuid>...
+Session starting...
+Events:
+- User Eve joined the session.
+- User Ben joined the session
+```
+- The connection to the pod is made and each the session turns into a normal shell.
+
 ### Configurable Model Proposition
 
 Instead of having fixed fields for specifying values such as required session viewers and roles this
