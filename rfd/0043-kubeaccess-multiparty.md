@@ -144,7 +144,11 @@ Creating session with uuid <example-uuid>...
 Session pending: observer requirements not met
 - role: auditor-role x2
 ```
-- Eve joins the session with `tsh kube join <example-uuid>`
+- Eve joins the session with `tsh kube join <example-uuid>` and sees:
+```
+Please tap MFA key to continue...
+```
+- Eve taps MFA
 - Alice and Eve see:
 ```
 Creating session with uuid <example-uuid>...
@@ -153,7 +157,11 @@ Session pending: observer requirements not met
 Events:
 - User Eve joined the session.
 ```
-- Ben joins the session with `tsh kube join <example-uuid>`
+- Ben joins the session with `tsh kube join <example-uuid>` and sees:
+```
+Please tap MFA key to continue...
+```
+- Ben taps MFA
 - Alice, Eve and Ben see
 ```
 Creating session with uuid <example-uuid>...
