@@ -36,7 +36,7 @@ An approach using multiplexing in the `proxy_service` layer was considered but w
 due to the fact that proxies don't handle the final session traffic hop when using Kubernetes Access.
 
 It will work by adding a multiplexing layer inside the forwarder that similar to the current session recording
-functionality, but instead this multiplexes inputs and outputs to all session participants.
+functionality, but instead this multiplexes outputs to all participants and streams input from the session initiator.
 
 #### Required session viewers
 
@@ -73,11 +73,12 @@ When the requirements for present viewers laid out in the role policy are fulfil
 the session transitions to a `RUNNING` state. This involves initiating the connection to the pod
 and setting up the shell. Finally, all clients are multiplexed onto the same input/output streams.
 
-All participants are able to enter input and will see the input/output from all other participants.
+Only the session initiator is able to make input, auditors are not connected to the input stream
+and may only view stdout/stderr and terminate the session.
 
 ##### Transition 2: `RUNNING -> TERMINATED`
 
-When the shell process created on the pod is terminated, the session transitions to a `TERMINATE` state and all clients
+When the shell process created on the pod is terminated, the session transitions to a `TERMINATED` state and all clients
 are disconnected as per standard `kubectl` behaviour.
 
 ##### Transition 3: `RUNNING -> TERMINATED`
@@ -90,9 +91,16 @@ the Kubernetes proxy will send a termination request to the pod session to reque
 
 If a viewer disconnects from the session in a way that causes the policy for required session viewers to suddenly not be fulfilled,
 the session will transition back to a `PENDING` state. In this state, input and output streams are disconnected, preventing any further action.
-The connection to the pod is terminated.
+
+Here, the connection is frozen for a configurable amount of time as a sort of grace period.
 
 ##### Transition 5: `PENDING -> TERMINATED`
+
+After a grace period has elapsed in a session in a session that previously was in a `RUNNING`
+state, the session is automatically terminated. This can be canceleld by having required participants
+join back in which transitions the session back to `RUNNING`.
+
+##### Transition 6: `PENDING -> TERMINATED`
 
 Any participant of the session can terminate the session in the `PENDING` state.
 This will simply mark the session as terminated and disconnect the participants as no
@@ -119,7 +127,7 @@ its built-in facilities for support session joining.
 
 To make this process easier for the user. I propose extending the current `tsh join` command
 to also work for Kubernetes access in the form of `tsh kube join <session-id>`. This attaches
-to an ongoing session.
+to an ongoing session and displays stdout/stderr.
 
 ### Configurable Model Proposition
 
@@ -127,7 +135,7 @@ Instead of having fixed fields for specifying values such as required session vi
 model centers around conditional allow rules.
 
 Imagine that you want to require two users with the role `auditor` to be present in a session
-at all times for pods labeled `environment:prod` or alternatively twp viewer with the role `admin`.
+at all times for pods labeled `environment:prod` or alternatively two viewers with the role `admin`.
 A tertiary policy allows the session to start with one `admin` and one `auditor` viewer.
 
 Then a role could look like this:
