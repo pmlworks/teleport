@@ -3,13 +3,12 @@ authors: Joel Wejdenstål (jwejdenstal@goteleport.com)
 state: draft
 ---
 
-# RFD 43 - Configurable Multiparty Sessions for Kubernetes Access
+# RFD 43 - Shared sessions with observers for Kubernetes Access
 
 ## What
 
-Implement multiparty sessions for Kubernetes Access using a more advanced model
-with support for configurable conditions similar to those of [RFD 26](https://github.com/gravitational/teleport/blob/2fd6a88800604342bfa6277060b056d8bf0cbfb2/rfd/0026-custom-approval-conditions.md).
-Also support defining conditions for required observrs in order to initiate and maintain a session.
+Implement sessions with observing for Kubernetes Access with support for configurable conditions similar to those of [RFD 26](https://github.com/gravitational/teleport/blob/2fd6a88800604342bfa6277060b056d8bf0cbfb2/rfd/0026-custom-approval-conditions.md).
+Also support defining conditions for required observers in order to initiate and maintain a session.
 
 ## Why
 
