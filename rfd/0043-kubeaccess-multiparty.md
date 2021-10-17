@@ -174,44 +174,85 @@ Events:
 ### Configurable Model Proposition
 
 Instead of having fixed fields for specifying values such as required session viewers and roles this
-model centers around conditional allow rules.
+model centers around conditional allow rules and filters. It is implemented as a bi-directional mapping between the role of the session initiator and the roles of the other session participants.
 
-Imagine that you want to require two users with the role `auditor` to be present in a session
-at all times for pods labeled `environment:prod` or alternatively two viewers with the role `admin`.
-A tertiary policy allows the session to start with one `admin` and one `auditor` viewer.
+Roles can have `require_session_join` rule under `allow` containing requirements for session participants
+before a session may be started with privilege access to nodes that the role provides.
 
-Then a role could look like this:
+Roles can also have an `join_sessions` rule under `allow` specifying which roles
+and session types that that the role grants privileges to join.
+
+We will only initially support the modes `moderator` for Kubernetes Access and `peer` for SSH sessions.
+An `observer` mode also exists which only grants access to view but not terminate an ongoing session.
+
+Imagine you have 4 roles:
+- `prod-access`
+- `senior-dev`
+- `customer-db-maintenance`
+- `maintenance-observer`
+
+And these requirements:
+- `prod-access` should be able to start sessions of any type with either one `senior-dev` observeror two `dev` observers.
+- `senior-dev` should be able to start sessions of any type without oversight.
+- `customer-db-maintenance` needs oversight by one `maintenance-observer` on `ssh` type sessions.
+
+Then the 4 roles could be defined as follows:
 
 ```yaml
 kind: role
-version: v4
 metadata:
-  name: developer
+  name: prod-access
 spec:
   allow:
-    kubernetes_groups: ["system:masters"]
-    kubernetes_pods:
-      - name: Auditor Policy
-        pod_labels: ["environment:prod"]
-        filter: 'contains(viewer.roles, "auditor") || contains(viewer.traits["teams"], "auditors")'
-        viewers: 2
-      - name: Admin Policy
-          pod_labels: ["environment:prod"]
-          filter: 'contains(viewer.roles, "admin") || contains(viewer.traits["teams"], "admins")'
-          viewers: 2
-      - name: Admin and Auditor Policy
-          pod_labels: ["environment:prod"]
-          filters:
-            auditor:
-              filter: 'contains(viewer.roles, "auditor") || contains(viewer.traits["teams"], "auditors")'
-              viewers: 1
-            admin:
-              filter: 'contains(viewer.roles, "admin") || contains(viewer.traits["teams"], "admins")'
-              viewers: 1
+    require_session_observation:
+      - name: Senior dev oversight
+        filter: 'contains(observer.roles,"senior-dev")'
+        kinds: ['k8s', 'ssh']
+        count: 1
+      - name: Dual dev oversight
+        filter: 'contains(observer.roles,"dev")'
+        kinds: ['k8s', 'ssh']
+        count: 2
 ```
 
-What this system attempts to achieve is to allow administrators to construct rich
-matchers for who can serve as a required viewer for whom for some set of pods.
+```yaml
+kind: role
+metadata:
+  name: senior-dev
+spec:
+  allow:
+    observe_sessions:
+      - name: admin
+        roles : ['prod-access', 'training']
+        kinds: ['k8s', 'ssh', 'db']
+        modes: ['moderator']
+```
+
+```yaml
+kind: role
+metadata:
+  name: customer-db-maintenance
+spec:
+  allow:
+    require_session_observation:
+      - name: Observer oversight
+        filter: 'contains(observer.roles, "maintenance-observer")'
+        kinds: ['ssh']
+        count: 1
+```
+
+```yaml
+kind: role
+metadata:
+  name: maintenance-observer
+spec:
+  allow:
+    observe_sessions:
+      - name: observer
+        roles: ['customer-db-*']
+        kind: ['*']
+        modes: ['moderator']
+```
 
 #### Filter specification
 
