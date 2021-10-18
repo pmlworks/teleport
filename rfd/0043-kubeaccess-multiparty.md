@@ -121,7 +121,7 @@ It will have an optional flag for suggested participants: `tsh kube requests cre
 An optional reason flag also exists which allows you to attach an arbitrary message to the participant request: `tsh kube requests create <session-id> --reason "customer db maintenance"`.
 
 A resource will be created which will support interaction with existing plugins for notifiying relevant
-groups when a request is created.
+groups when a request is created similar to notifications for access requests.
 
 ##### Request resource
 
