@@ -137,10 +137,10 @@ start a multiparty session. Below is a a series of events that happen that inclu
 they do.
 
 - Alice initiates an interactive session to a pod: `kubectl exec -it database -- sh`
-- Alice see:
+- Alice sees:
 ```
 Creating session with uuid <example-uuid>...
-Session pending: observer requirements not met
+This session requires moderator. Waiting for others to join:
 - role: auditor-role x2
 ```
 - Eve joins the session with `tsh kube join <example-uuid>` and sees:
@@ -148,10 +148,10 @@ Session pending: observer requirements not met
 Please tap MFA key to continue...
 ```
 - Eve taps MFA
-- Alice and Eve see:
+- Alice and Eve sees:
 ```
 Creating session with uuid <example-uuid>...
-Session pending: observer requirements not met
+This session requires moderator. Waiting for others to join:
 - role: auditor-role x1
 Events:
 - User Eve joined the session.
@@ -161,7 +161,7 @@ Events:
 Please tap MFA key to continue...
 ```
 - Ben taps MFA
-- Alice, Eve and Ben see
+- Alice, Eve and Ben sees
 ```
 Creating session with uuid <example-uuid>...
 Session starting...
@@ -204,7 +204,7 @@ metadata:
   name: prod-access
 spec:
   allow:
-    require_session_observation:
+    require_session_join:
       - name: Senior dev oversight
         filter: 'contains(observer.roles,"senior-dev")'
         kinds: ['k8s', 'ssh']
@@ -221,8 +221,8 @@ metadata:
   name: senior-dev
 spec:
   allow:
-    observe_sessions:
-      - name: admin
+    join_sessions:
+      - name: Senior dev oversight
         roles : ['prod-access', 'training']
         kinds: ['k8s', 'ssh', 'db']
         modes: ['moderator']
@@ -234,8 +234,8 @@ metadata:
   name: customer-db-maintenance
 spec:
   allow:
-    require_session_observation:
-      - name: Observer oversight
+    require_session_join:
+      - name: Maintenance oversight
         filter: 'contains(observer.roles, "maintenance-observer")'
         kinds: ['ssh']
         count: 1
@@ -247,8 +247,8 @@ metadata:
   name: maintenance-observer
 spec:
   allow:
-    observe_sessions:
-      - name: observer
+    join_sessions:
+      - name: Maintenance oversight
         roles: ['customer-db-*']
         kind: ['*']
         modes: ['moderator']
