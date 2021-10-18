@@ -107,6 +107,72 @@ Any participant of the session can terminate the session in the `PENDING` state.
 This will simply mark the session as terminated and disconnect the participants as no
 connection to the pod exists at this time.
 
+#### Participant requests
+
+Shared sessions for Kubernetes access will have support for participant requests.
+A participant request may be created in the `PENDING` session state by a session participant.
+
+This creates a resource that can be seen by eligible session participants with `tsh kube requests ls`.
+This easily allows eligible participants to find and join a session waiting for participants.
+
+A request may also be created for an existing session via `tsh kube requests create <session-id>`.
+It will have an optional flag for suggested participants: `tsh kube requests create <session-id> --invite user1,user2,user3`.
+
+An optional reason flag also exists which allows you to attach an arbitrary message to the participant request: `tsh kube requests create <session-id> --reason "customer db maintenance"`.
+
+A resource will be created which will support interaction with existing plugins for notifiying relevant
+groups when a request is created.
+
+##### Request resource
+
+The resource has been modeled after the resource for access requests. Below follows the protobuf
+declaration of the proposed resource.
+
+```protobuf
+// KubernetesSessionRequestSpecV3 is the specification for a request for session participants resource.
+message KubernetesSessionRequestSpecV3 {
+    // SessionID is unique identifier of the session after 
+    string SessionID = 1 [ (gogoproto.jsontag) = "user" ];
+
+    // State is the current state of this session request.
+    KubernetesSessionRequestState State = 3 [ (gogoproto.jsontag) = "state,omitempty" ];
+
+    // Created encodes the time at which the request was registered with the auth
+    // server.
+    google.protobuf.Timestamp Created = 4 [
+        (gogoproto.stdtime) = true,
+        (gogoproto.nullable) = false,
+        (gogoproto.jsontag) = "created,omitempty"
+    ];
+
+    // Expires encodes the time at which this session participant request expires and becomes invalid.
+    google.protobuf.Timestamp Expires = 4 [
+        (gogoproto.stdtime) = true,
+        (gogoproto.nullable) = false,
+        (gogoproto.jsontag) = "expires,omitempty"
+    ];
+
+    // RequestReason is an optional message explaining the reason for the request.
+    string RequestReason = 6 [ (gogoproto.jsontag) = "request_reason,omitempty" ];
+
+    // SuggestedReviewers is a list of reviewer suggestions.  These can be teleport usernames, but
+    // that is not a requirement.
+    repeated string SuggestedReviewers = 13
+        [ (gogoproto.jsontag) = "suggested_reviewers,omitempty" ];
+}
+
+// RequestState represents the state of a request for escalated privilege.
+enum KubernetesSessionRequestState {
+    // PENDING variant represents a session that is waiting on participants to fulfill the criteria
+    // to start the session.
+    PENDING = 0;
+
+    // FULFILLED variant represents a session that has had it's criteria for starting
+    // fulfilled at least once and has transitioned to a RUNNING state.
+    FULFILLED = 1;
+}
+```
+
 #### UI/UX
 
 The initial implementation of multiparty sessions on Kubernetes access will only be supported via CLI access for implementation simplicity.
