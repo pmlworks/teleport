@@ -280,7 +280,7 @@ func ForWindowsDesktop(cfg Config) Config {
 // for cache
 type SetupConfigFn func(c Config) Config
 
-// Cache implements auth.AccessPoint interface and remembers
+// Cache implements auth.Cache interface and remembers
 // the previously returned upstream value for each API call.
 //
 // This which can be used if the upstream AccessPoint goes offline
@@ -1159,7 +1159,7 @@ func (c *Cache) GetClusterName(opts ...services.MarshalOption) (types.ClusterNam
 	return rg.clusterConfig.GetClusterName(opts...)
 }
 
-// GetRoles is a part of auth.AccessPoint implementation
+// GetRoles is a part of auth.Cache implementation
 func (c *Cache) GetRoles(ctx context.Context) ([]types.Role, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1169,7 +1169,7 @@ func (c *Cache) GetRoles(ctx context.Context) ([]types.Role, error) {
 	return rg.access.GetRoles(ctx)
 }
 
-// GetRole is a part of auth.AccessPoint implementation
+// GetRole is a part of auth.Cache implementation
 func (c *Cache) GetRole(ctx context.Context, name string) (types.Role, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1199,7 +1199,7 @@ func (c *Cache) GetNamespace(name string) (*types.Namespace, error) {
 	return rg.presence.GetNamespace(name)
 }
 
-// GetNamespaces is a part of auth.AccessPoint implementation
+// GetNamespaces is a part of auth.Cache implementation
 func (c *Cache) GetNamespaces() ([]types.Namespace, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1219,7 +1219,7 @@ func (c *Cache) GetNode(ctx context.Context, namespace, name string) (types.Serv
 	return rg.presence.GetNode(ctx, namespace, name)
 }
 
-// GetNodes is a part of auth.AccessPoint implementation
+// GetNodes is a part of auth.Cache implementation
 func (c *Cache) GetNodes(ctx context.Context, namespace string, opts ...services.MarshalOption) ([]types.Server, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1229,7 +1229,7 @@ func (c *Cache) GetNodes(ctx context.Context, namespace string, opts ...services
 	return rg.presence.GetNodes(ctx, namespace, opts...)
 }
 
-// ListNodes is a part of auth.AccessPoint implementation
+// ListNodes is a part of auth.Cache implementation
 func (c *Cache) ListNodes(ctx context.Context, namespace string, limit int, startKey string) ([]types.Server, string, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1249,7 +1249,7 @@ func (c *Cache) GetAuthServers() ([]types.Server, error) {
 	return rg.presence.GetAuthServers()
 }
 
-// GetReverseTunnels is a part of auth.AccessPoint implementation
+// GetReverseTunnels is a part of auth.Cache implementation
 func (c *Cache) GetReverseTunnels(opts ...services.MarshalOption) ([]types.ReverseTunnel, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1259,7 +1259,7 @@ func (c *Cache) GetReverseTunnels(opts ...services.MarshalOption) ([]types.Rever
 	return rg.presence.GetReverseTunnels(opts...)
 }
 
-// GetProxies is a part of auth.AccessPoint implementation
+// GetProxies is a part of auth.Cache implementation
 func (c *Cache) GetProxies() ([]types.Server, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1289,7 +1289,7 @@ func (c *Cache) GetRemoteCluster(clusterName string) (types.RemoteCluster, error
 	return rg.presence.GetRemoteCluster(clusterName)
 }
 
-// GetUser is a part of auth.AccessPoint implementation.
+// GetUser is a part of auth.Cache implementation.
 func (c *Cache) GetUser(name string, withSecrets bool) (user types.User, err error) {
 	if withSecrets { // cache never tracks user secrets
 		return c.Config.Users.GetUser(name, withSecrets)
@@ -1313,7 +1313,7 @@ func (c *Cache) GetUser(name string, withSecrets bool) (user types.User, err err
 	return user, trace.Wrap(err)
 }
 
-// GetUsers is a part of auth.AccessPoint implementation
+// GetUsers is a part of auth.Cache implementation
 func (c *Cache) GetUsers(withSecrets bool) (users []types.User, err error) {
 	if withSecrets { // cache never tracks user secrets
 		return c.Users.GetUsers(withSecrets)
@@ -1326,9 +1326,7 @@ func (c *Cache) GetUsers(withSecrets bool) (users []types.User, err error) {
 	return rg.users.GetUsers(withSecrets)
 }
 
-// GetTunnelConnections is a part of auth.AccessPoint implementation
-// GetTunnelConnections are not using recent cache as they are designed
-// to be called periodically and always return fresh data
+// GetTunnelConnections is a part of auth.Cache implementation
 func (c *Cache) GetTunnelConnections(clusterName string, opts ...services.MarshalOption) ([]types.TunnelConnection, error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1338,9 +1336,7 @@ func (c *Cache) GetTunnelConnections(clusterName string, opts ...services.Marsha
 	return rg.presence.GetTunnelConnections(clusterName, opts...)
 }
 
-// GetAllTunnelConnections is a part of auth.AccessPoint implementation
-// GetAllTunnelConnections are not using recent cache, as they are designed
-// to be called periodically and always return fresh data
+// GetAllTunnelConnections is a part of auth.Cache implementation
 func (c *Cache) GetAllTunnelConnections(opts ...services.MarshalOption) (conns []types.TunnelConnection, err error) {
 	rg, err := c.read()
 	if err != nil {
@@ -1350,7 +1346,7 @@ func (c *Cache) GetAllTunnelConnections(opts ...services.MarshalOption) (conns [
 	return rg.presence.GetAllTunnelConnections(opts...)
 }
 
-// GetKubeServices is a part of auth.AccessPoint implementation
+// GetKubeServices is a part of auth.Cache implementation
 func (c *Cache) GetKubeServices(ctx context.Context) ([]types.Server, error) {
 	rg, err := c.read()
 	if err != nil {
