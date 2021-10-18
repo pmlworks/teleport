@@ -110,7 +110,7 @@ connection to the pod exists at this time.
 #### Participant requests
 
 Shared sessions for Kubernetes access will have support for participant requests.
-A participant request may be created in the `PENDING` session state by a session participant.
+A participant request may be created in the `PENDING` session state by a session participant interactively.
 
 This creates a resource that can be seen by eligible session participants with `tsh kube requests ls`.
 This easily allows eligible participants to find and join a session waiting for participants.
