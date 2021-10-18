@@ -208,10 +208,12 @@ spec:
       - name: Senior dev oversight
         filter: 'contains(observer.roles,"senior-dev")'
         kinds: ['k8s', 'ssh']
+        modes: ['moderator']
         count: 1
       - name: Dual dev oversight
         filter: 'contains(observer.roles,"dev")'
         kinds: ['k8s', 'ssh']
+        modes: ['moderator']
         count: 2
 ```
 
@@ -238,6 +240,7 @@ spec:
       - name: Maintenance oversight
         filter: 'contains(observer.roles, "maintenance-observer")'
         kinds: ['ssh']
+        modes: ['moderator']
         count: 1
 ```
 
