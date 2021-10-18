@@ -161,7 +161,7 @@ message KubernetesSessionRequestSpecV3 {
         [ (gogoproto.jsontag) = "suggested_reviewers,omitempty" ];
 }
 
-// RequestState represents the state of a request for escalated privilege.
+// KubernetesSessionRequestState represents the state of a request for escalated privilege.
 enum KubernetesSessionRequestState {
     // PENDING variant represents a session that is waiting on participants to fulfill the criteria
     // to start the session.
