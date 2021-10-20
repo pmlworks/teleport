@@ -45,12 +45,13 @@ func main() {
 	}
 
 	// the api module import path should only be updated on releases
-	if isPreRelease() {
-		exitWithMessage("the current API version (%v) is not a release, continue without updating", api.Version)
+	newVersion := api.Version
+	if isPreRelease(newVersion) {
+		exitWithMessage("the current API version (%v) is not a release, continue without updating", newVersion)
 	}
 
 	// get the current and new api module import paths
-	currentPath, newPath, err := getAPIModuleImportPaths()
+	currentPath, newPath, err := getAPIModuleImportPaths(newVersion)
 	if err != nil {
 		exitWithError(trace.Wrap(err, "failed to get mod paths"))
 	} else if currentPath == newPath {
@@ -59,11 +60,11 @@ func main() {
 
 	// update go files within the teleport/api and teleport modules to use the new import path
 	log.Info("Updating teleport/api module...")
-	if err := updateGoModule("./api", currentPath, newPath, buildFlags); err != nil {
+	if err := updateGoModule("./api", currentPath, newPath, newVersion, buildFlags); err != nil {
 		exitWithError(trace.Wrap(err, "failed to update teleport/api module"))
 	}
 	log.Info("Updating teleport module...")
-	if err := updateGoModule("./", currentPath, newPath, buildFlags); err != nil {
+	if err := updateGoModule("./", currentPath, newPath, newVersion, buildFlags); err != nil {
 		exitWithError(trace.Wrap(err, "failed to update teleport module"))
 	}
 
@@ -75,7 +76,22 @@ func main() {
 }
 
 // updateGoModule updates instances of the currentPath with the newPath in the given go module.
-func updateGoModule(modulePath, currentPath, newPath string, buildFlags []string) error {
+func updateGoModule(modulePath, currentPath, newPath, newVersion string, buildFlags []string) error {
+	log.Info("    Updating go files...")
+	if err := updateGoFiles(modulePath, currentPath, newPath, newVersion, buildFlags); err != nil {
+		return trace.Wrap(err, "failed to update mod file for module")
+	}
+
+	log.Info("    Updating go.mod...")
+	if err := updateGoModFile(modulePath, currentPath, newPath, newVersion); err != nil {
+		return trace.Wrap(err, "failed to update mod file for module")
+	}
+
+	return nil
+}
+
+// updateGoFiles updates instances of the currentPath with the newPath in go files in the given module.
+func updateGoFiles(modulePath, currentPath, newPath, newVersion string, buildFlags []string) error {
 	mode := packages.NeedTypes | packages.NeedSyntax
 	cfg := &packages.Config{Mode: mode, Tests: true, Dir: modulePath, BuildFlags: buildFlags}
 	pkgs, err := packages.Load(cfg, "./...")
@@ -83,30 +99,19 @@ func updateGoModule(modulePath, currentPath, newPath string, buildFlags []string
 		return trace.Wrap(err)
 	}
 
-	log.Info("    Updating go files...")
 	var errs []error
 	packages.Visit(pkgs, func(pkg *packages.Package) bool {
-		if err = updateGoImports(pkg, currentPath, newPath); err != nil {
+		if err = updateGoImports(pkg, currentPath, newPath, newVersion); err != nil {
 			errs = append(errs, err)
 			return false
 		}
 		return true
 	}, nil)
-
-	if len(errs) != 0 {
-		return trace.NewAggregate(errs...)
-	}
-
-	log.Info("    Updating go.mod...")
-	if err := updateModFile(modulePath, currentPath, newPath); err != nil {
-		return trace.Wrap(err, "failed to update mod file for module")
-	}
-
-	return nil
+	return trace.NewAggregate(errs...)
 }
 
 // updateGoImports updates instances of the currentPath with the newPath in the given package.
-func updateGoImports(p *packages.Package, currentPath, newPath string) error {
+func updateGoImports(p *packages.Package, currentPath, newPath, newVersion string) error {
 	for _, syn := range p.Syntax {
 		var rewritten bool
 		for _, i := range syn.Imports {
@@ -137,9 +142,9 @@ func updateGoImports(p *packages.Package, currentPath, newPath string) error {
 	return nil
 }
 
-// updateModFile updates instances of oldPath to newPath in a go.mod file.
+// updateGoModFile updates instances of oldPath to newPath in a go.mod file.
 // The modFile is updated in place by updating the syntax fields directly.
-func updateModFile(dir, oldPath, newPath string) error {
+func updateGoModFile(dir, oldPath, newPath, newVersion string) error {
 	modFile, err := getModFile(dir)
 	if err != nil {
 		return trace.Wrap(err)
@@ -153,10 +158,10 @@ func updateModFile(dir, oldPath, newPath string) error {
 		if r.Mod.Path == oldPath {
 			// Update path and version of require statement.
 			if r.Syntax.InBlock {
-				r.Syntax.Token[0], r.Syntax.Token[1] = newPath, "v"+api.Version
+				r.Syntax.Token[0], r.Syntax.Token[1] = newPath, "v"+newVersion
 			} else {
 				// First token in the line is "require", skip to second and third indices
-				r.Syntax.Token[1], r.Syntax.Token[2] = newPath, "v"+api.Version
+				r.Syntax.Token[1], r.Syntax.Token[2] = newPath, "v"+newVersion
 			}
 		}
 	}
@@ -166,9 +171,15 @@ func updateModFile(dir, oldPath, newPath string) error {
 			// Update path of replace statement.
 			if r.Syntax.InBlock {
 				r.Syntax.Token[0] = newPath
+				if r.Old.Version != "" {
+					r.Syntax.Token[1] = "v" + newVersion
+				}
 			} else {
 				// First token in the line is "replace", skip to second index
 				r.Syntax.Token[1] = newPath
+				if r.Old.Version != "" {
+					r.Syntax.Token[2] = "v" + newVersion
+				}
 			}
 		}
 	}
@@ -236,7 +247,7 @@ func getModFile(dir string) (*modfile.File, error) {
 }
 
 // getAPIModuleImportPaths gets the current and new import paths for the api module
-func getAPIModuleImportPaths() (current string, new string, err error) {
+func getAPIModuleImportPaths(version string) (current string, new string, err error) {
 	// get the current mod path from `api/go.mod`
 	currentPath, err := getModImportPath("./api")
 	if err != nil {
@@ -245,7 +256,7 @@ func getAPIModuleImportPaths() (current string, new string, err error) {
 
 	// get the new major version suffix - e.g "" for v0/v1 or "/vX" for vX where X >= 2
 	var majVerSuffix string
-	if ver := semver.New(api.Version); ver.Major >= 2 {
+	if ver := semver.New(version); ver.Major >= 2 {
 		majVerSuffix = fmt.Sprintf("/v%d", ver.Major)
 	}
 
@@ -259,8 +270,8 @@ func getAPIModuleImportPaths() (current string, new string, err error) {
 }
 
 // returns whether the current api version is a pre-release, e.g "v7.0.0-beta"
-func isPreRelease() bool {
-	return semver.New(api.Version).PreRelease != ""
+func isPreRelease(version string) bool {
+	return semver.New(version).PreRelease != ""
 }
 
 func exitWithError(err error) {
